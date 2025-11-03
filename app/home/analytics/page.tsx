@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -35,28 +35,6 @@ import toast, { Toaster } from 'react-hot-toast'
 type MonthlyData = { month: string; revenue: number; members: number }
 type YearlyData = { year: string; revenue: number; members: number }
 
-const monthlyRevenueData: MonthlyData[] = [
-  { month: 'Jan', revenue: 12500, members: 45 },
-  { month: 'Feb', revenue: 15200, members: 52 },
-  { month: 'Mar', revenue: 18700, members: 63 },
-  { month: 'Apr', revenue: 16800, members: 58 },
-  { month: 'May', revenue: 22400, members: 71 },
-  { month: 'Jun', revenue: 25600, members: 78 },
-  { month: 'Jul', revenue: 28900, members: 84 },
-  { month: 'Aug', revenue: 31200, members: 89 },
-  { month: 'Sep', revenue: 29800, members: 86 },
-  { month: 'Oct', revenue: 33400, members: 95 },
-  { month: 'Nov', revenue: 36700, members: 102 },
-  { month: 'Dec', revenue: 42300, members: 118 }
-]
-
-const yearlyData: YearlyData[] = [
-  { year: '2021', revenue: 185000, members: 420 },
-  { year: '2022', revenue: 234000, members: 580 },
-  { year: '2023', revenue: 289000, members: 720 },
-  { year: '2024', revenue: 341000, members: 890 }
-]
-
 const planDistribution = [
   { name: 'Basic', value: 35, color: '#374151' },
   { name: 'Premium', value: 28, color: '#6B7280' },
@@ -67,55 +45,107 @@ const planDistribution = [
 const Analytics = () => {
   const [viewMode, setViewMode] = useState<'monthly' | 'yearly'>('monthly')
   const [isExporting, setIsExporting] = useState(false)
+  const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([])
+  const [yearlyData, setYearlyData] = useState<YearlyData[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const currentData: (MonthlyData | YearlyData)[] = viewMode === 'monthly' ? monthlyRevenueData : yearlyData
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await fetch('/api/analytics')
+        const data = await res.json()
+        setMonthlyData(data.monthlyRevenueData || [])
+        setYearlyData(data.yearlyData || [])
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
+  const currentData: (MonthlyData | YearlyData)[] = viewMode === 'monthly' ? monthlyData : yearlyData
   const totalRevenue = currentData.reduce((sum, item) => sum + item.revenue, 0)
   const totalMembers = currentData.reduce((sum, item) => sum + item.members, 0)
-  const avgRevenue = Math.round(totalRevenue / currentData.length)
+  const avgRevenue = currentData.length ? Math.round(totalRevenue / currentData.length) : 0
 
-  const handleExportCSV = async () => {
-    setIsExporting(true)
-    const loadingToastId = toast.loading('Preparing CSV export...', {
-      style: { border: '2px solid #000', padding: '16px', color: '#000', backgroundColor: '#fff', fontWeight: '600' }
+const handleExportCSV = async () => {
+  if (!currentData.length) {
+    toast.error('No data to export.')
+    return
+  }
+
+  setIsExporting(true)
+  const loadingToastId = toast.loading('Preparing CSV export...', {
+    style: { border: '2px solid #000', padding: '16px', color: '#000', backgroundColor: '#fff', fontWeight: '600' }
+  })
+
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1200))
+
+    const csvRows: string[] = []
+    const headers = ['Period', 'Revenue (₹)', 'Members', 'Avg Revenue per Member (₹)']
+    csvRows.push(headers.join(','))
+
+    currentData.forEach(item => {
+      const period = 'month' in item ? item.month : item.year
+      const revenue = item.revenue.toLocaleString('en-IN')
+      const members = item.members.toString()
+      const avg = Math.round(item.revenue / item.members).toLocaleString('en-IN')
+
+      const row = [period, revenue, members, avg]
+        .map(field => `"${field.replace(/"/g, '""')}"`)
+        .join(',')
+      csvRows.push(row)
     })
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      const csvData = currentData.map(item => ({
-        Period: 'month' in item ? item.month : item.year,
-        Revenue: `₹${item.revenue.toLocaleString()}`,
-        Members: item.members,
-        'Avg Revenue per Member': `₹${Math.round(item.revenue / item.members)}`
-      }))
-      const headers = Object.keys(csvData[0])
-      const csvContent = [
-        headers.join(','),
-        ...csvData.map(row =>
-          headers.map(header => (row as Record<string, string | number>)[header]).join(',')
-        )
-      ].join('\n')
-      const blob = new Blob([csvContent], { type: 'text/csv' })
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `analytics-${viewMode}.csv`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-      toast.success('CSV exported successfully!', {
-        id: loadingToastId,
-        style: { border: '2px solid #000', padding: '16px', color: '#fff', backgroundColor: '#000', fontWeight: '600' },
-        iconTheme: { primary: '#fff', secondary: '#000' },
-        duration: 3000
-      })
-    } catch {
-      toast.error('Export failed. Please try again.', {
-        id: loadingToastId,
-        style: { border: '2px solid #dc2626', padding: '16px', color: '#dc2626', backgroundColor: '#fff', fontWeight: '600' }
-      })
-    } finally {
-      setIsExporting(false)
-    }
+
+    const csvContent = csvRows.join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `analytics-${viewMode}-${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+
+    toast.success('CSV exported successfully!', {
+      id: loadingToastId,
+      style: { border: '2px solid #000', padding: '16px', color: '#fff', backgroundColor: '#000', fontWeight: '600' },
+      iconTheme: { primary: '#fff', secondary: '#000' },
+      duration: 3000
+    })
+  } catch (error) {
+    console.error(error)
+    toast.error('Export failed. Please try again.', {
+      id: loadingToastId,
+      style: { border: '2px solid #dc2626', padding: '16px', color: '#dc2626', backgroundColor: '#fff', fontWeight: '600' }
+    })
+  } finally {
+    setIsExporting(false)
+  }
+}
+
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[80vh] text-gray-600">
+        <BarChart3 className="w-10 h-10 animate-spin mb-4" />
+        <p className="text-lg font-medium">Loading analytics...</p>
+      </div>
+    )
+  }
+
+  if (!currentData.length) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[80vh] text-gray-600">
+        <BarChart3 className="w-12 h-12 mb-4 text-gray-400" />
+        <p className="text-xl font-semibold">No data available</p>
+        <p className="text-gray-500 mt-2">Add some payments to see analytics here.</p>
+      </div>
+    )
   }
 
   return (
@@ -234,7 +264,7 @@ const Analytics = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey={'month' in currentData[0] ? 'month' : 'year'} tick={{ fill: '#374151', fontSize: 12 }} />
                   <YAxis tick={{ fill: '#374151', fontSize: 12 }} tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(value) => [`₹${value.toLocaleString()}`, 'Revenue']} contentStyle={{ backgroundColor: 'white', border: '2px solid #000', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                  <Tooltip formatter={(value) => [`₹${value.toLocaleString()}`, 'Revenue']} contentStyle={{ backgroundColor: 'white', border: '2px solid #000', borderRadius: '8px' }} />
                   <Bar dataKey="revenue" fill="#000000" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -253,7 +283,7 @@ const Analytics = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey={'month' in currentData[0] ? 'month' : 'year'} tick={{ fill: '#374151', fontSize: 12 }} />
                   <YAxis tick={{ fill: '#374151', fontSize: 12 }} />
-                  <Tooltip formatter={(value) => [value, 'Members']} contentStyle={{ backgroundColor: 'white', border: '2px solid #000', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                  <Tooltip formatter={(value) => [value, 'Members']} contentStyle={{ backgroundColor: 'white', border: '2px solid #000', borderRadius: '8px' }} />
                   <Line type="monotone" dataKey="members" stroke="#000000" strokeWidth={3} dot={{ fill: '#000000', strokeWidth: 2, r: 6 }} activeDot={{ r: 8, stroke: '#000000', strokeWidth: 2 }} />
                 </LineChart>
               </ResponsiveContainer>

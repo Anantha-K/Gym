@@ -70,7 +70,7 @@ const StudentCard = ({ name, membershipType, status, subscriptionEndDate, id }: 
               <p className="text-sm text-gray-600">
                 <span className="font-medium">Ended</span>{' '}
                 <span className="text-gray-900 font-semibold">
-                  {daysRemaining} days ago
+                  {Math.abs(daysRemaining)} days ago
                 </span>
               </p>
             }
