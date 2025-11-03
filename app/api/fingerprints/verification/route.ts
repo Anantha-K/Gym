@@ -65,3 +65,39 @@ export const POST = async (req: NextRequest) => {
     );
   }
 };
+
+
+export const GET = async () => {
+  try {
+    await connectDb();
+
+    const membersWithFingerprint = await Member.find(
+      { fingerprintId: { $exists: true, $ne: null } },
+      {
+        name: 1,
+        phoneNumber: 1,
+        membershipType: 1,
+        status: 1,
+        fingerprintId: 1,
+        subscriptionEndDate: 1,
+        subscriptionStartDate: 1,
+        _id: 1,
+      }
+    ).sort({ name: 1 });
+
+    if (!membersWithFingerprint.length) {
+      return NextResponse.json(
+        { message: "No members with fingerprint IDs found", members: [] },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ members: membersWithFingerprint }, { status: 200 });
+  } catch (error: any) {
+    console.error("Error fetching members with fingerprint IDs:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+};
