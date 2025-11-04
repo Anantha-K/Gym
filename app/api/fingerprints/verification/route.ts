@@ -74,16 +74,12 @@ export const GET = async () => {
     const membersWithFingerprint = await Member.find(
       { fingerprintId: { $exists: true, $ne: null } },
       {
-        name: 1,
-        phoneNumber: 1,
-        membershipType: 1,
-        status: 1,
         fingerprintId: 1,
-        subscriptionEndDate: 1,
-        subscriptionStartDate: 1,
-        _id: 1,
+        _id:0
       }
-    ).sort({ name: 1 });
+    ).sort({ fingerprintId: 1 });
+
+    const fingerprintIds = membersWithFingerprint.map(member => member.fingerprintId);
 
     if (!membersWithFingerprint.length) {
       return NextResponse.json(
@@ -92,7 +88,7 @@ export const GET = async () => {
       );
     }
 
-    return NextResponse.json({ members: membersWithFingerprint }, { status: 200 });
+    return NextResponse.json({ members: fingerprintIds }, { status: 200 });
   } catch (error: any) {
     console.error("Error fetching members with fingerprint IDs:", error);
     return NextResponse.json(
