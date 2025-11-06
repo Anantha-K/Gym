@@ -89,7 +89,7 @@ const Students = () => {
 
   if (error) {
     return (
-      <div className=" h-0.5 md:h-screen  overflow-y-auto bg-gray-50 flex items-center justify-center p-6">
+      <div className=" h-screen  overflow-y-auto bg-gray-50 flex items-center justify-center p-6">
         <div className="text-center max-w-md">
           <div className="bg-white rounded-lg shadow-sm border p-8">
             <AlertCircle className="h-16 w-16 text-red-400 mx-auto mb-4" />
