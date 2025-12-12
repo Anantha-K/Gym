@@ -73,13 +73,8 @@ export const GET = async () => {
 
     const membersWithFingerprint = await Member.find(
       { fingerprintId: { $exists: true, $ne: null } },
-      {
-        fingerprintId: 1,
-        _id:0
-      }
+      { fingerprintId: 1, _id: 0 }
     ).sort({ fingerprintId: 1 });
-
-    const fingerprintIds = membersWithFingerprint.map(member => member.fingerprintId);
 
     if (!membersWithFingerprint.length) {
       return NextResponse.json(
@@ -88,7 +83,12 @@ export const GET = async () => {
       );
     }
 
-    return NextResponse.json({ members: fingerprintIds }, { status: 200 });
+    const result = membersWithFingerprint.map(member => ({
+      fp: member.fingerprintId
+    }));
+
+    return NextResponse.json(result, { status: 200 });
+
   } catch (error: any) {
     console.error("Error fetching members with fingerprint IDs:", error);
     return NextResponse.json(
