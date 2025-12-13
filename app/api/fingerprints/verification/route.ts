@@ -1,21 +1,23 @@
 import { connectDb } from "@/db";
 import { NextRequest, NextResponse } from "next/server";
 import Member from "@/models/member";
+import Attendance from "@/models/attendance";
+
 
 export const POST = async (req: NextRequest) => {
   try {
     await connectDb();
 
-    const { fingerprintId } = await req.json();
+    const { fp } = await req.json();
 
-    if (!fingerprintId || typeof fingerprintId !== "number") {
+    if (!fp || typeof fp !== "number") {
       return NextResponse.json(
         { error: "Invalid or missing fingerprint ID" },
         { status: 400 }
       );
     }
 
-    const member = await Member.findOne({ fingerprintId });
+    const member = await Member.findOne({ fp });
 
     if (!member) {
       return NextResponse.json(
@@ -36,12 +38,26 @@ export const POST = async (req: NextRequest) => {
             name: member.name,
             status: member.status,
             membershipType: member.membershipType,
-            fingerprintId: member.fingerprintId,
+            fp: member.fp,
           },
         },
         { status: 403 }
       );
     }
+
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const existing = await Attendance.findOne({
+      memberId: member._id,
+      date: { $gte: today }
+    });
+
+    if (!existing) {
+      await Attendance.create({ memberId: member._id });
+    }
+
 
     return NextResponse.json(
       {
@@ -51,7 +67,7 @@ export const POST = async (req: NextRequest) => {
           name: member.name,
           phoneNumber: member.phoneNumber,
           membershipType: member.membershipType,
-          fingerprintId: member.fingerprintId,
+          fp: member.fp,
           subscriptionEndDate: member.subscriptionEndDate,
         },
       },
@@ -72,9 +88,9 @@ export const GET = async () => {
     await connectDb();
 
     const membersWithFingerprint = await Member.find(
-      { fingerprintId: { $exists: true, $ne: null } },
-      { fingerprintId: 1, _id: 0 }
-    ).sort({ fingerprintId: 1 });
+      { fp: { $exists: true, $ne: null } },
+      { fp: 1, _id: 0 }
+    ).sort({ fp: 1 });
 
     if (!membersWithFingerprint.length) {
       return NextResponse.json(
@@ -84,7 +100,7 @@ export const GET = async () => {
     }
 
     const result = membersWithFingerprint.map(member => ({
-      fp: member.fingerprintId
+      fp: member.fp
     }));
 
     return NextResponse.json(result, { status: 200 });
