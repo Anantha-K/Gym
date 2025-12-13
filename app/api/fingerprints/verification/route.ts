@@ -2,15 +2,14 @@ import { connectDb } from "@/db";
 import { NextRequest, NextResponse } from "next/server";
 import Member from "@/models/member";
 
-
 export const GET = async () => {
   try {
     await connectDb();
 
     const membersWithFingerprint = await Member.find(
-      { fp: { $exists: true, $ne: null } },
-      { fp: 1, _id: 0 }
-    ).sort({ fp: 1 });
+      { fingerprintId: { $exists: true, $ne: null } },
+      { fingerprintId: 1, _id: 0 }
+    ).sort({ fingerprintId: 1 });
 
     if (!membersWithFingerprint.length) {
       return NextResponse.json(
@@ -20,7 +19,7 @@ export const GET = async () => {
     }
 
     const result = membersWithFingerprint.map(member => ({
-      fp: member.fp
+      fp: member.fingerprintId
     }));
 
     return NextResponse.json(result, { status: 200 });
