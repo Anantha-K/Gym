@@ -3,21 +3,22 @@ import { connectDb } from "@/db";
 import Member from "@/models/member";
 import Attendance from "@/models/attendance";
 
-export const POST = async (
-  req: NextRequest,
-  context: { params: Promise<{ fingerprintId: string }> }
-) => {
+export const POST = async (req: NextRequest) => {
   try {
     await connectDb();
 
-    const { fingerprintId } = await context.params;
-    const id = Number(fingerprintId);
+    const { fingerprintId } = await req.json();
 
+    const id = Number(fingerprintId);
     if (!id || isNaN(id)) {
-      return NextResponse.json({ error: "Invalid fingerprint ID" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid fingerprint ID" },
+        { status: 400 }
+      );
     }
 
     const member = await Member.findOne({ fingerprintId: id });
+
     if (!member) {
       return NextResponse.json(
         { error: "No member found for this fingerprint ID" },
@@ -33,12 +34,6 @@ export const POST = async (
         {
           access: false,
           message: `Access denied. Member is ${member.status}`,
-          member: {
-            name: member.name,
-            status: member.status,
-            membershipType: member.membershipType,
-            fingerprintId: member.fingerprintId,
-          },
         },
         { status: 403 }
       );
@@ -49,7 +44,7 @@ export const POST = async (
 
     const existing = await Attendance.findOne({
       memberId: member._id,
-      date: { $gte: today }
+      date: { $gte: today },
     });
 
     if (!existing) {
@@ -62,15 +57,15 @@ export const POST = async (
         message: "Access granted",
         member: {
           name: member.name,
-          phoneNumber: member.phoneNumber,
           membershipType: member.membershipType,
-          fingerprintId: member.fingerprintId,
-          subscriptionEndDate: member.subscriptionEndDate,
         },
       },
       { status: 200 }
     );
-  } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 };
