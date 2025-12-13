@@ -5,21 +5,22 @@ import Attendance from "@/models/attendance";
 
 export const GET = async (
   _req: NextRequest,
-  { params }: { params: { fp: string } }
+  context: { params: Promise<{ fp: string }> }
 ) => {
   try {
     await connectDb();
 
-    const fp = Number(params.fp);
+    const { fp } = await context.params; 
+    const fpNumber = Number(fp);
 
-    if (!fp || isNaN(fp)) {
+    if (!fpNumber || isNaN(fpNumber)) {
       return NextResponse.json(
         { error: "Invalid fingerprint ID" },
         { status: 400 }
       );
     }
 
-    const member = await Member.findOne({ fp });
+    const member = await Member.findOne({ fp: fpNumber });
 
     if (!member) {
       return NextResponse.json(
@@ -73,6 +74,7 @@ export const GET = async (
       },
       { status: 200 }
     );
+
   } catch (error: any) {
     console.error("Verification error:", error);
     return NextResponse.json(
