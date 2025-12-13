@@ -3,25 +3,21 @@ import { connectDb } from "@/db";
 import Member from "@/models/member";
 import Attendance from "@/models/attendance";
 
-export const GET = async (
-  _req: NextRequest,
-  context: { params: Promise<{ fp: string }> }
+export const POST = async (
+  req: NextRequest,
+  context: { params: Promise<{ fingerprintId: string }> }
 ) => {
   try {
     await connectDb();
 
-    const { fp } = await context.params; 
-    const fpNumber = Number(fp);
+    const { fingerprintId } = await context.params;
+    const id = Number(fingerprintId);
 
-    if (!fpNumber || isNaN(fpNumber)) {
-      return NextResponse.json(
-        { error: "Invalid fingerprint ID" },
-        { status: 400 }
-      );
+    if (!id || isNaN(id)) {
+      return NextResponse.json({ error: "Invalid fingerprint ID" }, { status: 400 });
     }
 
-    const member = await Member.findOne({ fp: fpNumber });
-
+    const member = await Member.findOne({ fingerprintId: id });
     if (!member) {
       return NextResponse.json(
         { error: "No member found for this fingerprint ID" },
@@ -41,7 +37,7 @@ export const GET = async (
             name: member.name,
             status: member.status,
             membershipType: member.membershipType,
-            fp: member.fp,
+            fingerprintId: member.fingerprintId,
           },
         },
         { status: 403 }
@@ -68,18 +64,13 @@ export const GET = async (
           name: member.name,
           phoneNumber: member.phoneNumber,
           membershipType: member.membershipType,
-          fp: member.fp,
+          fingerprintId: member.fingerprintId,
           subscriptionEndDate: member.subscriptionEndDate,
         },
       },
       { status: 200 }
     );
-
-  } catch (error: any) {
-    console.error("Verification error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 };

@@ -3,67 +3,57 @@ import Attendance from "@/models/attendance";
 import Member from "@/models/member";
 import { NextResponse, NextRequest } from "next/server";
 
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
     await connectDb();
-    const { memberId, date, status } = await req.json();
-    if (!memberId || !date || !status) {
-      return NextResponse.json(
-        { error: "Fill all the fields" },
-        { status: 400 }
-      );
+
+    const { searchParams } = new URL(req.url);
+    const dateParam = searchParams.get("date");
+
+    if (!dateParam) {
+      return NextResponse.json({ attendance: [] }, { status: 200 });
     }
-    const member = await Member.findById(memberId);
-    if (!member) {
-      return NextResponse.json({ error: "Member not found" }, { status: 404 });
-    }
-    const attendance = new Attendance({
-      memberId,
-      date: new Date(date),
-    });
-    await attendance.save();
-    return NextResponse.json(
-      { message: "Attendance marked", attendance },
-      { status: 201 }
-    );
+
+    const target = new Date(dateParam);
+    target.setHours(0, 0, 0, 0);
+
+    const next = new Date(target);
+    next.setDate(target.getDate() + 1);
+
+    const attendance = await Attendance.find({
+      date: { $gte: target, $lt: next },
+    }).populate("memberId", "name");
+
+    return NextResponse.json({ attendance }, { status: 200 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-export async function GET() {
+export async function POST(req: NextRequest) {
   try {
     await connectDb();
+    const { memberId, date } = await req.json();
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
+    if (!memberId || !date) {
+      return NextResponse.json(
+        { error: "Missing fields" },
+        { status: 400 }
+      );
+    }
 
-    const attendance = await Attendance.find({
-      checkIn: { $gte: today, $lt: tomorrow },
-    }).populate("memberId", "name");
+    const member = await Member.findById(memberId);
+    if (!member) {
+      return NextResponse.json({ error: "Member not found" }, { status: 404 });
+    }
 
-    const names = attendance.map((a) => a.memberId?.name || "Unknown");
-
-    return new Response(
-      JSON.stringify({
-        date: today.toISOString().slice(0, 10),
-        attendance: names,
-      }),
-      {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: {
-        "Content-Type": "application/json",
-      },
+    const attendance = await Attendance.create({
+      memberId,
+      date: new Date(date),
     });
+
+    return NextResponse.json({ attendance }, { status: 201 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
